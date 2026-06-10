@@ -1,26 +1,27 @@
 /**
  * searchService.js
- * Orchestrator: calls real APIs → falls back to mock data transparently
+ * Orchestrator: calls Booking.com API → falls back to mock data transparently
+ * Returns { data, total, source, error }
  */
 
-import { searchFlights, searchHotels } from './amadeus.js'
-import { searchExperiences } from './experiences.js'
+import { searchFlights, searchHotels, searchAttractions } from './bookingApi.js'
 import { flights, hotels, experiences } from '../data/mockData.js'
 
 // ── Mock data filter helpers ───────────────────────────────────────────────
 function filterFlightsMock({ origin, destination, maxPrice }) {
   return flights.filter(f => {
-    if (origin && !f.from.toLowerCase().includes(origin.split('(')[0].trim().toLowerCase())) return false
-    if (destination && !f.to.toLowerCase().includes(destination.split('(')[0].trim().toLowerCase())) return false
+    if (origin && !f.from.toLowerCase().includes(origin.toLowerCase())) return false
+    if (destination && !f.to.toLowerCase().includes(destination.toLowerCase())) return false
     if (maxPrice && f.price > maxPrice) return false
     return true
   })
 }
 
 function filterHotelsMock({ city, stars, maxPrice }) {
+  const cityName = city?.toLowerCase() || ''
   return hotels
     .filter(h => {
-      if (city && !h.city.toLowerCase().includes(city.toLowerCase())) return false
+      if (cityName && !h.city.toLowerCase().includes(cityName)) return false
       if (stars && h.stars < stars) return false
       if (maxPrice && h.pricePerNight > maxPrice) return false
       return true
@@ -29,8 +30,9 @@ function filterHotelsMock({ city, stars, maxPrice }) {
 }
 
 function filterExperiencesMock({ city, category, maxPrice }) {
+  const cityName = city?.toLowerCase() || ''
   return experiences.filter(e => {
-    if (city && !e.city.toLowerCase().includes(city.toLowerCase())) return false
+    if (cityName && !e.city.toLowerCase().includes(cityName)) return false
     if (category && e.category !== category) return false
     if (maxPrice && e.price > maxPrice) return false
     return true
@@ -39,76 +41,55 @@ function filterExperiencesMock({ city, category, maxPrice }) {
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
-/**
- * Search flights.
- * Returns { data, source: 'api'|'mock', error: null|string }
- */
 export async function searchFlightsService(params) {
   try {
-    const data = await searchFlights(params)
-    // API returned empty → fall back to filtered mock
-    if (!data.length) {
-      return { data: filterFlightsMock(params), source: 'mock', error: null }
+    const res = await searchFlights(params)
+    // API returns { items, total }
+    if (!res.items.length) {
+      const mock = filterFlightsMock(params)
+      return { data: mock, total: mock.length, source: 'mock', error: null }
     }
-    return { data, source: 'api', error: null }
+    return { data: res.items, total: res.total, source: 'api', error: null }
   } catch (e) {
-    const isMissingKey = e.message === 'AMADEUS_NOT_CONFIGURED'
-    return {
-      data: filterFlightsMock(params),
-      source: 'mock',
-      error: isMissingKey ? null : e.message,
-    }
+    console.warn('[searchFlightsService] fallback:', e.message)
+    const mock = filterFlightsMock(params)
+    return { data: mock, total: mock.length, source: 'mock', error: null }
   }
 }
 
-/**
- * Search hotels.
- * Returns { data, source: 'api'|'mock', error: null|string }
- */
 export async function searchHotelsService(params) {
   try {
-    const data = await searchHotels(params)
-    if (!data.length) {
-      return { data: filterHotelsMock(params), source: 'mock', error: null }
+    const res = await searchHotels(params)
+    if (!res.items.length) {
+      const mock = filterHotelsMock(params)
+      return { data: mock, total: mock.length, source: 'mock', error: null }
     }
-    return { data, source: 'api', error: null }
+    return { data: res.items, total: res.total, source: 'api', error: null }
   } catch (e) {
-    const isMissingKey = e.message === 'AMADEUS_NOT_CONFIGURED'
-    return {
-      data: filterHotelsMock(params),
-      source: 'mock',
-      error: isMissingKey ? null : e.message,
-    }
+    console.warn('[searchHotelsService] fallback:', e.message)
+    const mock = filterHotelsMock(params)
+    return { data: mock, total: mock.length, source: 'mock', error: null }
   }
 }
 
-/**
- * Search experiences.
- * Returns { data, source: 'api'|'mock', error: null|string }
- */
 export async function searchExperiencesService(params) {
   try {
-    const data = await searchExperiences(params)
-    if (!data.length) {
-      return { data: filterExperiencesMock(params), source: 'mock', error: null }
+    const res = await searchAttractions(params)
+    if (!res.items.length) {
+      const mock = filterExperiencesMock(params)
+      return { data: mock, total: mock.length, source: 'mock', error: null }
     }
-    return { data, source: 'api', error: null }
+    return { data: res.items, total: res.total, source: 'api', error: null }
   } catch (e) {
-    const isMissingKey = e.message === 'OTM_NOT_CONFIGURED'
-    return {
-      data: filterExperiencesMock(params),
-      source: 'mock',
-      error: isMissingKey ? null : e.message,
-    }
+    console.warn('[searchExperiencesService] fallback:', e.message)
+    const mock = filterExperiencesMock(params)
+    return { data: mock, total: mock.length, source: 'mock', error: null }
   }
 }
 
-/**
- * All-in-one search dispatcher based on tab
- */
 export async function search(tab, params) {
-  if (tab === 'flights') return searchFlightsService(params)
-  if (tab === 'hotels') return searchHotelsService(params)
+  if (tab === 'flights')     return searchFlightsService(params)
+  if (tab === 'hotels')      return searchHotelsService(params)
   if (tab === 'experiences') return searchExperiencesService(params)
-  return { data: [], source: 'mock', error: null }
+  return { data: [], total: 0, source: 'mock', error: null }
 }

@@ -71,12 +71,24 @@
           <Transition name="form-fade" mode="out-in">
             <div v-if="activeTab === 'flights'" key="flights" class="form-grid">
               <div class="form-group">
-                <label class="form-label">⚲ Origen</label>
-                <CustomSelect v-model="form.origin" :options="originOptions" id="flight-origin" />
+                <label class="form-label">⧘ Origen</label>
+                <AutocompleteInput
+                  v-model="form.origin"
+                  placeholder="Madrid, Barcelona..."
+                  id="flight-origin"
+                  mode="flight"
+                  @select-meta="m => meta.origin = m"
+                />
               </div>
               <div class="form-group">
                 <label class="form-label">🗺 Destino</label>
-                <CustomSelect v-model="form.destination" :options="destOptions" id="flight-dest" />
+                <AutocompleteInput
+                  v-model="form.destination"
+                  placeholder="París, Londres, Roma..."
+                  id="flight-dest"
+                  mode="flight"
+                  @select-meta="m => meta.destination = m"
+                />
               </div>
               <div class="form-group">
                 <label class="form-label">$ Precio máximo</label>
@@ -97,12 +109,23 @@
             <!-- HOTELES -->
             <div v-else-if="activeTab === 'hotels'" key="hotels" class="form-grid">
               <div class="form-group">
-                <label class="form-label">🏞 Ciudad</label>
-                <CustomSelect v-model="form.hotelCity" :options="hotelCityOptions" id="hotel-city" />
+                <label class="form-label">🏙 Ciudad</label>
+                <AutocompleteInput
+                  v-model="form.hotelCity"
+                  placeholder="París, Londres, Dubai..."
+                  id="hotel-city"
+                  mode="hotel"
+                  @select-meta="m => meta.hotelCity = m"
+                />
               </div>
               <div class="form-group">
                 <label class="form-label">☆☆☆☆☆ Categoría</label>
-                <CustomSelect v-model="form.stars" :options="hotelStarsOptions" id="hotel-stars" />
+                <select class="input-glass" v-model.number="form.stars" id="hotel-stars">
+                  <option :value="0">Todas las estrellas</option>
+                  <option :value="3">3★ o más</option>
+                  <option :value="4">4★ o más</option>
+                  <option :value="5">5★ únicamente</option>
+                </select>
               </div>
               <div class="form-group">
                 <label class="form-label">$ Precio / noche</label>
@@ -123,12 +146,24 @@
             <!-- EXPERIENCIAS -->
             <div v-else-if="activeTab === 'experiences'" key="experiences" class="form-grid">
               <div class="form-group">
-                <label class="form-label">🏞 Ciudad</label>
-                <CustomSelect v-model="form.expCity" :options="expCityOptions" id="exp-city" />
+                <label class="form-label">🏙 Ciudad</label>
+                <AutocompleteInput
+                  v-model="form.expCity"
+                  placeholder="París, Madrid, Roma..."
+                  id="exp-city"
+                  mode="hotel"
+                  @select-meta="m => meta.expCity = m"
+                />
               </div>
               <div class="form-group">
-                <label class="form-label">☀︎︎ Categoría</label>
-                <CustomSelect v-model="form.expCategory" :options="expCategoryOptions" id="exp-cat" />
+                <label class="form-label">☀︎ Categoría</label>
+                <select class="input-glass" v-model="form.expCategory" id="exp-cat">
+                  <option value="">Todas las categorías</option>
+                  <option value="Gastronomía">Gastronomía</option>
+                  <option value="Cultura">Cultura</option>
+                  <option value="Aventura">Aventura</option>
+                  <option value="Bienestar">Bienestar</option>
+                </select>
               </div>
               <div class="form-group">
                 <label class="form-label">$ Precio máximo</label>
@@ -175,59 +210,7 @@
 
 <script setup>
 import { ref } from 'vue';
-import CustomSelect from './CustomSelect.vue';
-
-const originOptions = [
-  { label: 'Cualquier ciudad', value: '' },
-  { label: 'Madrid (MAD)', value: 'Madrid (MAD)' },
-  { label: 'Barcelona (BCN)', value: 'Barcelona (BCN)' },
-  { label: 'Sevilla (SVQ)', value: 'Sevilla (SVQ)' },
-  { label: 'Valencia (VLC)', value: 'Valencia (VLC)' },
-];
-
-const destOptions = [
-  { label: 'Cualquier destino', value: '' },
-  { label: 'París (CDG)', value: 'París (CDG)' },
-  { label: 'Londres (LHR)', value: 'Londres (LHR)' },
-  { label: 'Roma (FCO)', value: 'Roma (FCO)' },
-  { label: 'Dubai (DXB)', value: 'Dubai (DXB)' },
-  { label: 'Tokio (NRT)', value: 'Tokio (NRT)' },
-  { label: 'Nueva York (JFK)', value: 'Nueva York (JFK)' },
-];
-
-const hotelCityOptions = [
-  { label: 'Todas las ciudades', value: '' },
-  { label: 'París', value: 'París' },
-  { label: 'Londres', value: 'Londres' },
-  { label: 'Roma', value: 'Roma' },
-  { label: 'Dubai', value: 'Dubai' },
-  { label: 'Tokio', value: 'Tokio' },
-  { label: 'Nueva York', value: 'Nueva York' },
-];
-
-const hotelStarsOptions = [
-  { label: 'Todas las estrellas', value: 0 },
-  { label: '3★ o más', value: 3 },
-  { label: '4★ o más', value: 4 },
-  { label: '5★ únicamente', value: 5 },
-];
-
-const expCityOptions = [
-  { label: 'Todas las ciudades', value: '' },
-  { label: 'París', value: 'París' },
-  { label: 'Londres', value: 'Londres' },
-  { label: 'Roma', value: 'Roma' },
-  { label: 'Dubai', value: 'Dubai' },
-  { label: 'Tokio', value: 'Tokio' },
-];
-
-const expCategoryOptions = [
-  { label: 'Todas', value: '' },
-  { label: 'Gastronomía', value: 'Gastronomía' },
-  { label: 'Cultura', value: 'Cultura' },
-  { label: 'Aventura', value: 'Aventura' },
-  { label: 'Bienestar', value: 'Bienestar' },
-];
+import AutocompleteInput from './AutocompleteInput.vue';
 
 const emit = defineEmits(['tab-change', 'search', 'open-kit']);
 
@@ -246,13 +229,26 @@ const form = ref({
   expCity: '', expCategory: '', expMaxPrice: null,
 });
 
+// Stores the resolved meta (dest_id / iata) when user picks an autocomplete suggestion
+const meta = ref({
+  origin: null,
+  destination: null,
+  hotelCity: null,
+  expCity: null,
+});
+
 function setTab(id) {
   activeTab.value = id;
   emit('tab-change', id);
 }
 
 function doSearch() {
-  emit('search', { tab: activeTab.value, ...form.value });
+  emit('search', {
+    tab: activeTab.value,
+    ...form.value,
+    // Pass resolved meta so bookingApi can bypass the extra searchDestination call
+    _meta: meta.value,
+  });
 }
 </script>
 

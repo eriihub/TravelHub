@@ -27,7 +27,7 @@
         <div class="results-header">
           <div class="results-info">
             <h2 class="results-title">
-              <span class="text-gradient-white">{{ currentResultCount }}</span>
+              <span class="text-gradient-white">{{ displayTotal }}</span>
               {{ showFavsOnly ? 'favoritos' : 'resultados para' }}
               <em v-if="!showFavsOnly">{{ tabLabel }}</em>
             </h2>
@@ -57,11 +57,22 @@
           
           <!-- Actual results -->
           <template v-else>
-            <ProductCard v-for="item in sortedResults" :key="item.id" :item="item" :in-kit="isInKit(item)"
+            <ProductCard v-for="item in visibleResults" :key="item.id" :item="item" :in-kit="isInKit(item)"
               :is-fav="isFav(item)" :in-compare="isInCompare(item)" @toggle-kit="toggleKit" @toggle-fav="toggleFav"
               @toggle-compare="toggleCompare" />
           </template>
         </TransitionGroup>
+
+        <!-- Ver más button -->
+        <div v-if="!loading && hasMore" class="load-more-wrap">
+          <button class="btn-load-more" @click="showMore" id="load-more-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Ver {{ Math.min(PAGE_SIZE, sortedResults.length - visibleCount) }} más
+            <span class="load-more-count">({{ sortedResults.length - visibleCount }} restantes)</span>
+          </button>
+        </div>
 
         <!-- Empty state for favs -->
         <div v-if="showFavsOnly && favItems.length === 0" class="empty-state">
@@ -123,7 +134,7 @@ const sortOptions = [
 import SkeletonCard from './components/SkeletonCard.vue';
 import { useSearch } from './composables/useSearch.js';
 
-const { results, loading, error, activeTab, loadDefault, doSearch } = useSearch();
+const { results, total, loading, error, activeTab, loadDefault, doSearch } = useSearch();
 
 const showResults = ref(false);
 const showFavsOnly = ref(false);
@@ -147,6 +158,7 @@ onMounted(() => {
 function handleTabChange(tab) {
   searchParams.value = null;
   showFavsOnly.value = false;
+  visibleCount.value = PAGE_SIZE; // reset pagination
 
   if (tab === 'kits') {
     showResults.value = false;
@@ -161,6 +173,7 @@ async function handleSearch(params) {
   showFavsOnly.value = false;
   searchParams.value = params;
   showResults.value = true;
+  visibleCount.value = PAGE_SIZE; // reset pagination
 
   if (params.tab === 'kits') {
     await doSearch('flights', params);
@@ -183,6 +196,26 @@ const sortedResults = computed(() => {
   if (sortBy.value === 'price-desc') arr.sort((a, b) => b.price - a.price);
   if (sortBy.value === 'rating') arr.sort((a, b) => b.rating - a.rating);
   return arr;
+});
+
+// ── Pagination ──────────────────────────────────────────────────────────────
+const PAGE_SIZE = 6;
+const visibleCount = ref(PAGE_SIZE);
+
+const visibleResults = computed(() => sortedResults.value.slice(0, visibleCount.value));
+const hasMore = computed(() => sortedResults.value.length > visibleCount.value);
+
+function showMore() {
+  visibleCount.value += PAGE_SIZE;
+}
+
+// Total to display in header:
+// - When viewing favs: the favs count
+// - When API data available: the real API total (can be 200, 1000...)
+// - When using mock: just the full results array length
+const displayTotal = computed(() => {
+  if (showFavsOnly.value) return favItems.value.length;
+  return total.value || sortedResults.value.length;
 });
 
 const currentResultCount = computed(() => sortedResults.value.length);
@@ -414,6 +447,42 @@ const kitTotal = computed(() =>
 
 .api-error-icon {
   font-size: 1.2rem;
+}
+
+.load-more-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.btn-load-more {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 32px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--pure-white);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--dur-base) var(--ease-out);
+  backdrop-filter: blur(8px);
+  letter-spacing: 0.01em;
+}
+
+.btn-load-more:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-2px);
+}
+
+.load-more-count {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .star-align {

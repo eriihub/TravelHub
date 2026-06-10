@@ -1,6 +1,20 @@
 <template>
   <div class="product-card" :class="{ 'in-kit': inKit, 'in-compare': inCompare, 'is-fav': isFav }"
     @mouseenter="hovered = true" @mouseleave="hovered = false">
+    <!-- Hotel image background (only for hotels) -->
+    <div v-if="item.type === 'hotel'" class="hotel-card-bg">
+      <img
+        v-if="item.image"
+        :src="item.image"
+        :alt="item.name"
+        class="hotel-card-img"
+        loading="lazy"
+        @error="imgError = true"
+      />
+      <div class="hotel-card-bg-fallback" v-else></div>
+      <div class="hotel-card-fade"></div>
+    </div>
+
     <!-- Stripe -->
     <div class="card-stripe" :style="{ background: item.color || 'rgba(255,255,255,0.5)' }"></div>
 
@@ -8,7 +22,7 @@
     <div class="card-glare" aria-hidden="true"></div>
 
     <!-- Top row -->
-    <div class="card-top">
+    <div class="card-top" :class="{ 'card-top-hotel': item.type === 'hotel' }">
       <div class="card-icon-wrap">
         <span class="card-icon">{{ displayIcon }}</span>
       </div>
@@ -158,6 +172,7 @@ const props = defineProps({
 defineEmits(['toggle-kit', 'toggle-fav', 'toggle-compare']);
 
 const hovered = ref(false);
+const imgError = ref(false);
 
 const typeLabel = computed(() => ({
   flight: 'Vuelo ✈', hotel: 'Hotel 𖠿', experience: 'Experiencia ☕︎'
@@ -192,6 +207,78 @@ const discountPct = computed(() => {
 </script>
 
 <style scoped>
+/* ── Hotel card image background ─────────────────── */
+.hotel-card-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* Height covers everything above the divider: top row + rating + name + loc */
+  height: 175px;
+  overflow: hidden;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  z-index: 0;
+}
+
+.hotel-card-img,
+.hotel-card-bg-fallback {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.45) saturate(0.8);
+  transition: transform 0.4s ease;
+}
+
+.hotel-card-bg-fallback {
+  background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+}
+
+.product-card:hover .hotel-card-img {
+  transform: scale(1.04);
+}
+
+/* Bottom fade that merges into the divider */
+.hotel-card-fade {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60%;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0,0,0,0.55) 50%,
+    rgba(0,0,0,0.92) 80%,
+    #000 100%
+  );
+}
+
+/* Ensure card content sits on top of the hotel image */
+.card-stripe,
+.card-glare,
+.card-top,
+.card-top-hotel,
+.card-rating,
+.card-name,
+.card-loc,
+.divider,
+.hotel-info,
+.flight-info,
+.exp-info,
+.card-footer,
+.kit-indicator {
+  position: relative;
+  z-index: 1;
+}
+
+/* Hotel top row: text shadow for readability over photo */
+.card-top-hotel .card-type-badge,
+.card-top-hotel .tag {
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+  background: rgba(0,0,0,0.45);
+  border-color: rgba(255,255,255,0.25);
+}
+
 /* ── Card base ──────────────────────────────────── */
 .product-card {
   position: relative;
