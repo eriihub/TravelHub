@@ -2,7 +2,8 @@
   <div class="app-root">
     <!-- Navbar -->
     <NavBar :kit-count="kitItems.length" :fav-count="favItems.length" :compare-count="compareItems.length"
-      @open-kit="kitOpen = true" @open-favs="toggleFavsView" @open-compare="compareOpen = true" />
+      @open-kit="kitOpen = true" @open-favs="toggleFavsView" @open-compare="compareOpen = true"
+      @open-auth="authOpen = true" />
 
     <!-- Hero / Search -->
     <HeroSearch id="search" v-if="!showFavsOnly" @tab-change="handleTabChange" @search="handleSearch"
@@ -41,11 +42,25 @@
           </div>
         </div>
 
+        <!-- API Error Banner -->
+        <div v-if="error && !showFavsOnly" class="api-error-banner">
+          <span class="api-error-icon">⚠️</span>
+          {{ error }}
+        </div>
+
         <!-- Cards grid -->
         <TransitionGroup name="cards" tag="div" class="cards-grid">
-          <ProductCard v-for="item in sortedResults" :key="item.id" :item="item" :in-kit="isInKit(item)"
-            :is-fav="isFav(item)" :in-compare="isInCompare(item)" @toggle-kit="toggleKit" @toggle-fav="toggleFav"
-            @toggle-compare="toggleCompare" />
+          <!-- Skeletons while loading -->
+          <template v-if="loading">
+            <SkeletonCard v-for="i in 6" :key="'skel-' + i" />
+          </template>
+          
+          <!-- Actual results -->
+          <template v-else>
+            <ProductCard v-for="item in sortedResults" :key="item.id" :item="item" :in-kit="isInKit(item)"
+              :is-fav="isFav(item)" :in-compare="isInCompare(item)" @toggle-kit="toggleKit" @toggle-fav="toggleFav"
+              @toggle-compare="toggleCompare" />
+          </template>
         </TransitionGroup>
 
         <!-- Empty state for favs -->
@@ -76,6 +91,9 @@
 
     <!-- Footer -->
     <AppFooter />
+
+    <!-- Auth Modal -->
+    <AuthModal :is-open="authOpen" @close="authOpen = false" @auth-success="onAuthSuccess" />
   </div>
 </template>
 
@@ -88,6 +106,13 @@ import KitBuilder from './components/KitBuilder.vue';
 import CompareModal from './components/CompareModal.vue';
 import AppFooter from './components/AppFooter.vue';
 import CustomSelect from './components/CustomSelect.vue';
+import AuthModal from './components/AuthModal.vue';
+
+const authOpen = ref(false);
+
+function onAuthSuccess(user) {
+  console.log('Usuario autenticado:', user?.email);
+}
 
 const sortOptions = [
   { label: 'Precio: menor primero', value: 'price-asc' },
@@ -95,12 +120,13 @@ const sortOptions = [
   { label: 'Mejor valorados', value: 'rating' },
 ];
 
-import { flights, hotels, experiences } from './data/mockData.js';
+import SkeletonCard from './components/SkeletonCard.vue';
+import { useSearch } from './composables/useSearch.js';
 
-const activeTab = ref('flights');
+const { results, loading, error, activeTab, loadDefault, doSearch } = useSearch();
+
 const showResults = ref(false);
 const showFavsOnly = ref(false);
-const results = ref([]);
 const searchParams = ref(null);
 const sortBy = ref('price-asc');
 
@@ -114,74 +140,34 @@ const compareOpen = ref(false);
 
 onMounted(() => {
   showResults.value = true;
-  results.value = flights;
+  loadDefault('flights');
 });
 
 // ── Search logic ───────────────────────────────────────────────────────────
 function handleTabChange(tab) {
-  activeTab.value = tab;
   searchParams.value = null;
   showFavsOnly.value = false;
 
   if (tab === 'kits') {
     showResults.value = false;
-    results.value = [];
+    activeTab.value = 'kits';
   } else {
     showResults.value = true;
-    if (tab === 'flights') {
-      results.value = flights;
-    } else if (tab === 'hotels') {
-      results.value = hotels.map(h => ({ ...h, price: h.pricePerNight }));
-    } else if (tab === 'experiences') {
-      results.value = experiences;
-    }
+    loadDefault(tab);
   }
 }
 
-function handleSearch(params) {
+async function handleSearch(params) {
   showFavsOnly.value = false;
   searchParams.value = params;
-  activeTab.value = params.tab;
   showResults.value = true;
 
-  let data = [];
-
-  if (params.tab === 'flights') {
-    data = flights.filter(f => {
-      if (params.destination && !f.to.toLowerCase().includes(params.destination.split('(')[0].trim().toLowerCase())) return false;
-      if (params.origin && !f.from.toLowerCase().includes(params.origin.split('(')[0].trim().toLowerCase())) return false;
-      if (params.maxPrice && f.price > params.maxPrice) return false;
-      return true;
-    });
-  } else if (params.tab === 'hotels') {
-    data = hotels.filter(h => {
-      if (params.hotelCity && !h.city.toLowerCase().includes(params.hotelCity.toLowerCase())) return false;
-      if (params.stars && h.stars < params.stars) return false;
-      if (params.hotelMaxPrice && h.pricePerNight > params.hotelMaxPrice) return false;
-      return true;
-    });
-    data = data.map(h => ({ ...h, price: h.pricePerNight }));
-  } else if (params.tab === 'experiences') {
-    data = experiences.filter(e => {
-      if (params.expCity && !e.city.toLowerCase().includes(params.expCity.toLowerCase())) return false;
-      if (params.expCategory && e.category !== params.expCategory) return false;
-      if (params.expMaxPrice && e.price > params.expMaxPrice) return false;
-      return true;
-    });
-  } else if (params.tab === 'kits') {
-    // Default search for kits flow is flights
-    data = flights;
+  if (params.tab === 'kits') {
+    await doSearch('flights', params);
     activeTab.value = 'flights';
+  } else {
+    await doSearch(params.tab, params);
   }
-
-  // Si no hay filtros, mostrar todos de esa tab
-  if (!data.length && (!params.destination && !params.origin && !params.maxPrice && !params.hotelCity && !params.stars && !params.hotelMaxPrice && !params.expCity && !params.expCategory && !params.expMaxPrice)) {
-    if (params.tab === 'flights') data = flights;
-    else if (params.tab === 'hotels') data = hotels.map(h => ({ ...h, price: h.pricePerNight }));
-    else if (params.tab === 'experiences') data = experiences;
-  }
-
-  results.value = data;
 
   // Scroll a resultados
   setTimeout(() => {
@@ -412,6 +398,24 @@ const kitTotal = computed(() =>
   gap: 24px;
 }
 
+.api-error-banner {
+  background: rgba(255, 60, 60, 0.1);
+  border: 1px solid rgba(255, 60, 60, 0.3);
+  color: #ffcccc;
+  padding: 16px 20px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.api-error-icon {
+  font-size: 1.2rem;
+}
+
 .star-align {
   margin-bottom: 1.5px;
 }
@@ -420,7 +424,7 @@ const kitTotal = computed(() =>
 .kit-fab {
   position: fixed;
   top: 75px;
-  right: 28px;
+  right: 32px;
   z-index: 150;
   display: flex;
   align-items: center;
@@ -506,6 +510,15 @@ const kitTotal = computed(() =>
 
   .sort-select {
     width: 100%;
+  }
+}
+
+/* En móvil el kit-fab baja a la esquina inferior derecha */
+@media (max-width: 700px) {
+  .kit-fab {
+    top: auto;
+    bottom: 28px;
+    right: 20px;
   }
 }
 </style>

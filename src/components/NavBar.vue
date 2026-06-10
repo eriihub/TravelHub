@@ -31,7 +31,7 @@
         </div>
       </div>
 
-      <!-- Actions -->
+      <!-- Actions (desktop only) -->
       <div class="navbar-actions">
         <!-- Favoritos -->
         <button v-if="favCount > 0" class="nav-icon-btn" title="Favoritos" @click="$emit('open-favs')"
@@ -52,9 +52,43 @@
           </svg>
           <span class="nav-icon-count">{{ compareCount }}</span>
         </button>
+
+        <!-- Auth: Not logged in (desktop) -->
+        <button v-if="!user" class="nav-login-btn nav-auth-desktop" @click="$emit('open-auth')" id="nav-login-btn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+          </svg>
+          Entrar
+        </button>
+
+        <!-- Auth: Logged in user avatar (desktop) -->
+        <div v-else class="user-menu nav-auth-desktop" @click.stop="userMenuOpen = !userMenuOpen"
+          tabindex="0" @blur="userMenuOpen = false" id="nav-user-menu">
+          <div class="user-avatar">
+            <span class="user-initial">{{ userInitial }}</span>
+          </div>
+          <Transition name="dropdown">
+            <div class="user-dropdown glass-strong" v-if="userMenuOpen">
+              <div class="user-dropdown-header">
+                <div class="user-avatar-lg">{{ userInitial }}</div>
+                <div class="user-dropdown-info">
+                  <div class="user-dropdown-name">{{ userName }}</div>
+                  <div class="user-dropdown-email">{{ user.email }}</div>
+                </div>
+              </div>
+              <div class="divider" style="margin: 0 10px;"></div>
+              <button class="user-dropdown-item" @mousedown.prevent="handleSignOut" id="nav-signout-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+                Cerrar sesión
+              </button>
+            </div>
+          </Transition>
+        </div>
       </div>
 
-      <!-- Mobile menu -->
+      <!-- Mobile menu btn -->
       <button class="mobile-menu-btn" @click="mobileOpen = !mobileOpen">
         <span></span><span></span><span></span>
       </button>
@@ -67,8 +101,22 @@
           @click="mobileOpen = false">✈ &nbsp; Buscar</a>
         <a href="#results" class="mobile-link" @click="mobileOpen = false">✔ &nbsp; Resultados</a>
         <button class="mobile-link" @click="$emit('open-kit'); mobileOpen = false"><span class="star-align">★</span>
-          &nbsp; Mi
-          Kit ({{ kitCount }})</button>
+          &nbsp; Mi Kit ({{ kitCount }})</button>
+
+        <!-- Auth en menú móvil -->
+        <button v-if="!user" class="mobile-link mobile-link-auth"
+          @click="$emit('open-auth'); mobileOpen = false" id="mobile-login-btn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+          </svg>
+          &nbsp; Entrar
+        </button>
+        <button v-else class="mobile-link mobile-link-auth" @mousedown.prevent="handleSignOut" id="mobile-signout-btn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+          &nbsp; Cerrar sesión ({{ userName }})
+        </button>
 
         <div class="mobile-lang-wrap" @click.stop="mobileLangOpen = !mobileLangOpen" tabindex="0"
           @blur="mobileLangOpen = false">
@@ -90,13 +138,31 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { useAuth } from '../composables/useAuth.js';
 
 defineProps({
   kitCount: { type: Number, default: 0 },
   favCount: { type: Number, default: 0 },
   compareCount: { type: Number, default: 0 },
 });
-defineEmits(['open-kit', 'open-favs', 'open-compare']);
+defineEmits(['open-kit', 'open-favs', 'open-compare', 'open-auth']);
+
+const { user, signOut } = useAuth();
+const userMenuOpen = ref(false);
+
+const userInitial = computed(() => {
+  const name = user.value?.user_metadata?.full_name || user.value?.email || '?';
+  return name.charAt(0).toUpperCase();
+});
+
+const userName = computed(() => {
+  return user.value?.user_metadata?.full_name || user.value?.email?.split('@')[0] || 'Usuario';
+});
+
+async function handleSignOut() {
+  userMenuOpen.value = false;
+  await signOut();
+}
 
 const isScrolled = ref(false);
 const mobileOpen = ref(false);
@@ -158,8 +224,7 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll));
 }
 
 .navbar-inner {
-  max-width: 1360px;
-  margin: 0 auto;
+  width: 100%;
   height: 100%;
   display: flex;
   align-items: center;
@@ -182,14 +247,10 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll));
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.14);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius-sm);
   transition: all var(--dur-base) var(--ease-out);
-}
-
-.brand-logo:hover {
-  background: rgba(255, 255, 255, 0.14);
 }
 
 .brand-name {
@@ -290,6 +351,139 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll));
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Login button — mismo estilo glass que el resto del navbar */
+.nav-login-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 24px 13px 24px;
+  /*padding: 8px 18px;*/
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--pure-white);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-out);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.nav-login-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+/* User avatar — glass B&W */
+.user-menu {
+  position: relative;
+  cursor: pointer;
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--dur-fast) ease;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.user-menu:hover .user-avatar {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.user-initial {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.user-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 220px;
+  background: rgba(12, 12, 16, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  overflow: hidden;
+  z-index: 200;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+
+.user-dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 14px 12px;
+}
+
+.user-avatar-lg {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.user-dropdown-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+}
+
+.user-dropdown-email {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+  margin-top: 2px;
+}
+
+
+
+.user-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.83rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--dur-fast) ease;
+  text-align: left;
+}
+
+.user-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--pure-white);
 }
 
 /* Mobile */
@@ -422,7 +616,7 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll));
 
 .lang-option:hover {
   background: rgba(255, 255, 255, 0.12);
-  color: #c48df8;
+  color: var(--pure-white);
 }
 
 .dropdown-enter-active,
@@ -480,5 +674,16 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll));
   .navbar {
     padding: 0 1rem;
   }
+
+  /* Oculta el botón Entrar/avatar de la barra en móvil */
+  .nav-auth-desktop {
+    display: none !important;
+  }
+}
+
+/* Auth en menú móvil */
+.mobile-link-auth {
+  display: flex;
+  align-items: center;
 }
 </style>
